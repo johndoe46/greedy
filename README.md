@@ -4,6 +4,8 @@ A JUCE VST3/AU MIDI drum sequencer based on Mutable Instruments Grids. It genera
 MIDI notes only, with no audio input or output. Route its MIDI output to a drum
 instrument in a host that supports MIDI output from VST3 plugins.
 
+![Greedy plugin user interface](docs/greedy-ui.png)
+
 ## Controls
 
 - **Kick / Snare / Hi-Hat:** independent sequence density, from 0% (silent) to 100%.
