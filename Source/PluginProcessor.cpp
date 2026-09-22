@@ -41,6 +41,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout GreedyAudioProcessor::create
         juce::ParameterID { "normalVelocity", 1 }, "Normal Velocity", 1, 127, 90));
     layout.add(std::make_unique<juce::AudioParameterInt>(
         juce::ParameterID { "accentVelocity", 1 }, "Accent Velocity", 1, 127, 120));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { "midiRecallEnabled", 1 }, "MIDI Snapshot Recall", true));
     return layout;
 }
 
@@ -50,6 +52,7 @@ GreedyAudioProcessor::GreedyAudioProcessor()
 {
     for (std::size_t i = 0; i < storedParameterIds.size(); ++i)
         storedParameters[i] = parameters.getRawParameterValue(storedParameterIds[i]);
+    midiRecallEnabled = parameters.getRawParameterValue("midiRecallEnabled");
 }
 
 GreedyAudioProcessor::~GreedyAudioProcessor()
@@ -161,7 +164,8 @@ void GreedyAudioProcessor::handleAsyncUpdate()
         const auto slot = pendingRecall.exchange(-1, std::memory_order_acq_rel);
         if (slot < 0)
             break;
-        recallSlot(slot);
+        if (midiRecallEnabled->load(std::memory_order_relaxed) >= 0.5f)
+            recallSlot(slot);
         auto expected = slot;
         midiOverrideSlot.compare_exchange_strong(expected, -1, std::memory_order_acq_rel);
     }
@@ -207,15 +211,23 @@ void GreedyAudioProcessor::processBlock(juce::AudioBuffer<float>& audio, juce::M
 {
     juce::ScopedNoDenormals noDenormals;
     audio.clear();
-    for (const auto metadata : midi)
+    if (midiRecallEnabled->load(std::memory_order_relaxed) >= 0.5f)
     {
-        const auto message = metadata.getMessage();
-        if (message.isNoteOn())
+        for (const auto metadata : midi)
         {
-            const auto slot = message.getNoteNumber() - firstSlotMidiNote;
-            if (slot >= 0 && slot < slotCount)
-                requestMidiRecall(slot);
+            const auto message = metadata.getMessage();
+            if (message.isNoteOn())
+            {
+                const auto slot = message.getNoteNumber() - firstSlotMidiNote;
+                if (slot >= 0 && slot < slotCount)
+                    requestMidiRecall(slot);
+            }
         }
+    }
+    else
+    {
+        pendingRecall.store(-1, std::memory_order_relaxed);
+        midiOverrideSlot.store(-1, std::memory_order_relaxed);
     }
     midi.clear();
     greedy::Transport transport;

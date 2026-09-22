@@ -45,6 +45,7 @@ private:
     juce::TooltipWindow tooltips { this, 600 };
     juce::Component controls;
     std::array<std::unique_ptr<GreedySlotButton>, GreedyAudioProcessor::slotCount> slotButtons;
+    juce::ToggleButton midiRecallToggle;
     std::array<juce::Slider, 6> knobs;
     std::array<juce::Label, 6> labels;
     std::array<juce::ComboBox, 3> noteSelectors;
@@ -54,6 +55,7 @@ private:
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 6> knobAttachments;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>, 3> noteAttachments;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 2> velocityAttachments;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> midiRecallAttachment;
     GreedyAudioProcessor::PatternDisplay displayedPattern;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GreedyAudioProcessorEditor)
 };

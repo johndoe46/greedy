@@ -17,8 +17,10 @@ instrument in a host that supports MIDI output from VST3 plugins.
 - **Normal / Accent Velocity:** MIDI note-on velocities from 1–127. Defaults: 90 and 120.
 - **Slots 1–12:** short press recalls a stored setup; hold for 600 ms to store all
   eleven parameter values. MIDI notes 36–47 (C1–B1) recall slots 1–12 on any channel.
+- **MIDI Recall:** enables or disables slot recall from MIDI notes. The slot buttons
+  and all sequencer behavior remain active while it is disabled.
 
-All eleven parameters support host automation and are saved with the project.
+All twelve parameters support host automation and are saved with the project.
 The twelve stored slots are also saved with the project.
 Double-click a knob or velocity slider to reset it. Values can also be typed directly.
 The editor can be resized from its bottom-right corner and keeps its original proportions.

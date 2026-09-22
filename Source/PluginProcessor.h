@@ -68,6 +68,7 @@ private:
     void handleAsyncUpdate() override;
     static void emitMidi(void* context, const greedy::NoteEvent& event);
     std::array<std::atomic<float>*, storedParameterCount> storedParameters {};
+    std::atomic<float>* midiRecallEnabled = nullptr;
     std::array<StoredSlot, slotCount> slots;
     std::atomic<int> pendingRecall { -1 };
     std::atomic<int> midiOverrideSlot { -1 };

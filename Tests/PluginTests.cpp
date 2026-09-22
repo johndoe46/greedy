@@ -46,14 +46,15 @@ int main(int argc, char** argv)
             "plugin declares MIDI input for slot recall and generated MIDI output");
     require(processor.getTotalNumInputChannels() == 0 && processor.getTotalNumOutputChannels() == 0,
             "plugin exposes no audio buses");
-    require(processor.getParameters().size() == 11,
-            "knobs, note selectors, and velocity levels are parameters");
+    require(processor.getParameters().size() == 12,
+            "knobs, note selectors, velocity levels, and MIDI recall switch are parameters");
 
     setParameter(processor, "kickDensity", 100);
     setParameter(processor, "snareDensity", 0);
     setParameter(processor, "hatDensity", 0);
     setParameter(processor, "mapX", 0);
     setParameter(processor, "mapY", 0);
+    setParameter(processor, "chaos", 0);
     setParameter(processor, "kickNote", 60);
     setParameter(processor, "normalVelocity", 47);
     setParameter(processor, "accentVelocity", 107);
@@ -100,6 +101,10 @@ int main(int argc, char** argv)
     restored.recallSlot(0);
     require(std::abs(restored.parameters.getRawParameterValue("normalVelocity")->load() - 47.0f)
             < 0.01f, "recalling a slot restores its parameter values");
+    setParameter(restored, "midiRecallEnabled", 0);
+    restored.recallSlot(0);
+    require(restored.parameters.getRawParameterValue("midiRecallEnabled")->load() < 0.5f,
+            "button recall does not change the global MIDI recall switch");
 
     host.playing = true;
     processor.processBlock(audio, midi);
@@ -177,6 +182,7 @@ int main(int argc, char** argv)
     int slotButtonCount = 0;
     juce::Slider* normalSlider = nullptr;
     juce::Slider* accentSlider = nullptr;
+    juce::ToggleButton* midiRecallToggle = nullptr;
     std::function<void(juce::Component&)> inspectControls = [&](juce::Component& component)
     {
         for (int i = 0; i < component.getNumChildComponents(); ++i)
@@ -193,6 +199,8 @@ int main(int argc, char** argv)
             selectors += dynamic_cast<juce::ComboBox*>(child) != nullptr ? 1 : 0;
             if (child->getName().startsWith("SLOT "))
                 ++slotButtonCount;
+            if (child->getName() == "MIDI SNAPSHOT RECALL")
+                midiRecallToggle = dynamic_cast<juce::ToggleButton*>(child);
             inspectControls(*child);
         }
     };
@@ -200,6 +208,8 @@ int main(int argc, char** argv)
     require(knobs == 8 && selectors == 3,
             "editor has six pattern knobs, two velocity sliders, and three note selectors");
     require(slotButtonCount == 12, "editor has twelve settings slot buttons");
+    require(midiRecallToggle != nullptr && midiRecallToggle->getToggleState(),
+            "editor has an enabled MIDI snapshot recall switch");
     require(normalSlider != nullptr && accentSlider != nullptr
             && std::abs(normalSlider->getValue() - 115.0) < 0.01
             && std::abs(accentSlider->getValue() - 35.0) < 0.01,
@@ -209,6 +219,10 @@ int main(int argc, char** argv)
             < 0.01f,
             "moving the normal velocity slider updates the plugin parameter");
     normalSlider->setValue(115, juce::sendNotificationSync);
+    midiRecallToggle->setToggleState(false, juce::sendNotificationSync);
+    require(processor.parameters.getRawParameterValue("midiRecallEnabled")->load() < 0.5f,
+            "MIDI recall switch updates its plugin parameter");
+    midiRecallToggle->setToggleState(true, juce::sendNotificationSync);
     require(editor->isResizable() && editor->getConstrainer() != nullptr
             && std::abs(editor->getConstrainer()->getFixedAspectRatio() - 744.0 / 790.0) < 1.0e-6,
             "editor advertises proportional resizing to the host");
@@ -230,14 +244,35 @@ int main(int argc, char** argv)
                 "editor preview can be saved");
     }
 
-    // Slot note-ons are consumed and apply the stored settings to this block.
+    // Disabling MIDI recall ignores slot notes without affecting normal sequencing.
     editor.reset();
+    setParameter(processor, "kickDensity", 100);
+    setParameter(processor, "snareDensity", 0);
+    setParameter(processor, "hatDensity", 0);
+    setParameter(processor, "mapX", 0);
+    setParameter(processor, "mapY", 0);
+    setParameter(processor, "chaos", 0);
     setParameter(processor, "kickNote", 77);
     setParameter(processor, "normalVelocity", 99);
+    setParameter(processor, "midiRecallEnabled", 0);
     processor.prepareToPlay(48000, 512);
     processor.setPlayHead(&host);
     host.playing = true;
     host.ppq = 0.0;
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::noteOn(1, GreedyAudioProcessor::slotMidiNote(0),
+                                           static_cast<juce::uint8>(100)), 0);
+    processor.processBlock(audio, midi);
+    require(midi.getNumEvents() == 1, "disabled slot trigger is consumed rather than passed through");
+    const auto ignoredRecallHit = (*midi.begin()).getMessage();
+    require(ignoredRecallHit.isNoteOn() && ignoredRecallHit.getNoteNumber() == 77
+            && ignoredRecallHit.getVelocity() == 99,
+            "disabled MIDI recall leaves sequencer settings unchanged");
+
+    // Enabling MIDI recall applies the stored settings in the triggering block.
+    setParameter(processor, "midiRecallEnabled", 1);
+    processor.prepareToPlay(48000, 512);
+    midi.clear();
     midi.addEvent(juce::MidiMessage::noteOn(1, GreedyAudioProcessor::slotMidiNote(0),
                                            static_cast<juce::uint8>(100)), 0);
     processor.processBlock(audio, midi);

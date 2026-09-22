@@ -135,6 +135,14 @@ GreedyAudioProcessorEditor::GreedyAudioProcessorEditor(GreedyAudioProcessor& p)
         button = std::make_unique<GreedySlotButton>(processor, slot);
         controls.addAndMakeVisible(*button);
     }
+    midiRecallToggle.setButtonText("MIDI RECALL");
+    midiRecallToggle.setName("MIDI SNAPSHOT RECALL");
+    midiRecallToggle.setTooltip("Enable MIDI notes C1-B1 to recall slots. Slot buttons remain active.");
+    midiRecallToggle.setColour(juce::ToggleButton::tickColourId, accents[3]);
+    midiRecallToggle.setColour(juce::ToggleButton::textColourId, muted);
+    controls.addAndMakeVisible(midiRecallToggle);
+    midiRecallAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        processor.parameters, "midiRecallEnabled", midiRecallToggle);
     const std::array<const char*, 6> ids { "kickDensity", "snareDensity", "hatDensity", "mapX", "mapY", "chaos" };
     const std::array<const char*, 6> names { "KICK", "SNARE", "HI-HAT", "MAP X", "MAP Y", "CHAOS" };
     const std::array<const char*, 6> tips {
@@ -223,7 +231,8 @@ void GreedyAudioProcessorEditor::resized()
     controls.setBounds(0, 0, baseWidth, baseHeight);
     controls.setTransform(contentTransform(getWidth(), getHeight()));
     for (int slot = 0; slot < GreedyAudioProcessor::slotCount; ++slot)
-        slotButtons[static_cast<std::size_t>(slot)]->setBounds(28, 62 + slot * 54, 72, 44);
+        slotButtons[static_cast<std::size_t>(slot)]->setBounds(28, 58 + slot * 51, 72, 40);
+    midiRecallToggle.setBounds(22, 674, 84, 24);
     for (int column = 0; column < 3; ++column)
     {
         const auto i = static_cast<std::size_t>(column);
@@ -255,7 +264,7 @@ void GreedyAudioProcessorEditor::paint(juce::Graphics& g)
     g.drawText("SLOTS", 24, 27, 80, 20, juce::Justification::centred);
     g.setColour(muted);
     g.setFont(juce::Font(juce::FontOptions(8.5f)));
-    g.drawFittedText("SHORT: RECALL\nHOLD: STORE", 23, 713, 82, 26,
+    g.drawFittedText("SHORT: RECALL\nHOLD: STORE", 23, 708, 82, 30,
                      juce::Justification::centred, 2);
     g.saveState();
     g.addTransform(juce::AffineTransform::translation(static_cast<float>(mainOffset), 0.0f));
