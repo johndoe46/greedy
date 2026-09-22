@@ -16,7 +16,8 @@ instrument in a host that supports MIDI output from VST3 plugins.
 - **Chaos:** increases per-part hit levels with a new perturbation each pattern.
 - **Normal / Accent Velocity:** MIDI note-on velocities from 1–127. Defaults: 90 and 120.
 - **Slots 1–12:** short press recalls a stored setup; hold for 600 ms to store all
-  eleven parameter values. MIDI notes 36–47 (C1–B1) recall slots 1–12 on any channel.
+  eleven parameter values. Slots map chromatically from C through B: every C recalls
+  slot 1, every C♯ recalls slot 2, and so on across every octave and MIDI channel.
 - **MIDI Recall:** enables or disables slot recall from MIDI notes. The slot buttons
   and all sequencer behavior remain active while it is disabled.
 

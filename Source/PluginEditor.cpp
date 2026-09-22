@@ -11,6 +11,9 @@ const std::array<juce::Colour, 6> accents {
     juce::Colour(0xffffa760), juce::Colour(0xfff17d99), juce::Colour(0xfff4d878),
     juce::Colour(0xff6dcac1), juce::Colour(0xff6dcac1), juce::Colour(0xffa79aef)
 };
+const std::array<const char*, 12> pitchClassNames {
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+};
 constexpr int baseWidth = 744;
 constexpr int baseHeight = 790;
 constexpr int mainOffset = 104;
@@ -28,12 +31,12 @@ juce::AffineTransform contentTransform(int width, int height)
 GreedySlotButton::GreedySlotButton(GreedyAudioProcessor& p, int slotIndex)
     : processor(p), slot(slotIndex)
 {
-    const auto note = GreedyAudioProcessor::slotMidiNote(slot);
     setButtonText(juce::String(slot + 1).paddedLeft('0', 2) + "  "
-        + juce::MidiMessage::getMidiNoteName(note, true, true, 3));
+        + pitchClassNames[static_cast<std::size_t>(slot)]);
     setName("SLOT " + juce::String(slot + 1));
-    setTooltip("Short press: recall. Hold for 600 ms: store current settings. MIDI note "
-        + juce::String(note) + " recalls this slot.");
+    setTooltip("Short press: recall. Hold for 600 ms: store current settings. Every "
+        + juce::String(pitchClassNames[static_cast<std::size_t>(slot)])
+        + " note recalls this slot.");
     onClick = [this]
     {
         if (!longPressTriggered)
@@ -137,7 +140,8 @@ GreedyAudioProcessorEditor::GreedyAudioProcessorEditor(GreedyAudioProcessor& p)
     }
     midiRecallToggle.setButtonText("MIDI RECALL");
     midiRecallToggle.setName("MIDI SNAPSHOT RECALL");
-    midiRecallToggle.setTooltip("Enable MIDI notes C1-B1 to recall slots. Slot buttons remain active.");
+    midiRecallToggle.setTooltip("Enable MIDI notes in every octave to recall slots by pitch class. "
+                                "Slot buttons remain active.");
     midiRecallToggle.setColour(juce::ToggleButton::tickColourId, accents[3]);
     midiRecallToggle.setColour(juce::ToggleButton::textColourId, muted);
     controls.addAndMakeVisible(midiRecallToggle);

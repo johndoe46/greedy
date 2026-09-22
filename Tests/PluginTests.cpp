@@ -48,6 +48,9 @@ int main(int argc, char** argv)
             "plugin exposes no audio buses");
     require(processor.getParameters().size() == 12,
             "knobs, note selectors, velocity levels, and MIDI recall switch are parameters");
+    for (int note = 0; note < 128; ++note)
+        require(GreedyAudioProcessor::slotForMidiNote(note) == note % 12,
+                "every MIDI octave maps chromatically across the twelve slots");
 
     setParameter(processor, "kickDensity", 100);
     setParameter(processor, "snareDensity", 0);
@@ -76,9 +79,11 @@ int main(int argc, char** argv)
     require(first.getVelocity() == 47, "configured normal velocity reaches actual JUCE output");
 
     host.playing = false;
+    midi.clear();
     processor.processBlock(audio, midi);
     require(midi.getNumEvents() == 1 && (*midi.begin()).getMessage().isNoteOff(),
             "host stop releases the actual MIDI note");
+    midi.clear();
     processor.processBlock(audio, midi);
     require(midi.isEmpty(), "stopped processor stays silent");
     require(processor.getPatternDisplay().currentStep == -1,
@@ -107,13 +112,16 @@ int main(int argc, char** argv)
             "button recall does not change the global MIDI recall switch");
 
     host.playing = true;
+    midi.clear();
     processor.processBlock(audio, midi);
     require(!midi.isEmpty(), "restart generates a fresh note");
+    midi.clear();
     processor.processBlockBypassed(audio, midi);
     require(midi.getNumEvents() == 1 && (*midi.begin()).getMessage().isNoteOff(),
             "bypass releases held MIDI notes");
 
     processor.setPlayHead(nullptr);
+    midi.clear();
     processor.processBlock(audio, midi);
     require(midi.isEmpty(), "missing host transport produces no notes");
 
@@ -260,7 +268,7 @@ int main(int argc, char** argv)
     host.playing = true;
     host.ppq = 0.0;
     midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOn(1, GreedyAudioProcessor::slotMidiNote(0),
+    midi.addEvent(juce::MidiMessage::noteOn(1, 84, // C in a high octave
                                            static_cast<juce::uint8>(100)), 0);
     processor.processBlock(audio, midi);
     require(midi.getNumEvents() == 1, "disabled slot trigger is consumed rather than passed through");
@@ -273,7 +281,7 @@ int main(int argc, char** argv)
     setParameter(processor, "midiRecallEnabled", 1);
     processor.prepareToPlay(48000, 512);
     midi.clear();
-    midi.addEvent(juce::MidiMessage::noteOn(1, GreedyAudioProcessor::slotMidiNote(0),
+    midi.addEvent(juce::MidiMessage::noteOn(1, 0, // C in the lowest MIDI octave
                                            static_cast<juce::uint8>(100)), 0);
     processor.processBlock(audio, midi);
     require(midi.getNumEvents() == 1, "slot trigger note is consumed rather than passed through");

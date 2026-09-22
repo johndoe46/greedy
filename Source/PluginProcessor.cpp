@@ -218,9 +218,7 @@ void GreedyAudioProcessor::processBlock(juce::AudioBuffer<float>& audio, juce::M
             const auto message = metadata.getMessage();
             if (message.isNoteOn())
             {
-                const auto slot = message.getNoteNumber() - firstSlotMidiNote;
-                if (slot >= 0 && slot < slotCount)
-                    requestMidiRecall(slot);
+                requestMidiRecall(slotForMidiNote(message.getNoteNumber()));
             }
         }
     }

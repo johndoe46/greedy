@@ -47,8 +47,10 @@ public:
     juce::AudioProcessorValueTreeState parameters;
     static constexpr int midiChannel = 10;
     static constexpr int slotCount = 12;
-    static constexpr int firstSlotMidiNote = 36;
-    static constexpr int slotMidiNote(int slot) noexcept { return firstSlotMidiNote + slot; }
+    static constexpr int slotForMidiNote(int note) noexcept
+    {
+        return note >= 0 && note < 128 ? note % slotCount : -1;
+    }
 
 private:
     static constexpr int storedParameterCount = 11;
