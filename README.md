@@ -18,6 +18,7 @@ instrument in a host that supports MIDI output from VST3 plugins.
 
 All eleven parameters support host automation and are saved with the project.
 Double-click a knob or velocity slider to reset it. Values can also be typed directly.
+The editor can be resized from its bottom-right corner and keeps its original proportions.
 
 The three pattern lanes show the 32 steps for kick, snare, and hi-hat, with their
 assigned MIDI note numbers. Colored cells indicate active steps; brighter cells

@@ -67,6 +67,24 @@ if(GREEDY_BUILD_PLUGIN)
     target_link_libraries(Greedy PRIVATE greedy_engine juce::juce_audio_processors
         PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
 
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET Greedy_VST3)
+        # JUCE generates this plist, but CMake's Ninja bundle step does not copy it.
+        # Hosts such as Bitwig reject a VST3 bundle without this metadata.
+        add_custom_command(TARGET Greedy_VST3 POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "$<TARGET_PROPERTY:Greedy_VST3,MACOSX_BUNDLE_INFO_PLIST>"
+                "$<TARGET_BUNDLE_DIR:Greedy_VST3>/Contents/Info.plist"
+            VERBATIM)
+        if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin" AND NOT CMAKE_CROSSCOMPILING)
+            # The generated moduleinfo and copied plist must be sealed after JUCE's
+            # post-build manifest step has finished modifying the bundle.
+            add_custom_command(TARGET Greedy_VST3 POST_BUILD
+                COMMAND /usr/bin/codesign --force --deep --sign -
+                    "$<TARGET_BUNDLE_DIR:Greedy_VST3>"
+                VERBATIM)
+        endif()
+    endif()
+
     if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows" AND TARGET Greedy_VST3)
         # JUCE autolinks these mixed-case filenames. xwin's libraries are
         # lowercase, and the Linux linker searches a case-sensitive filesystem.

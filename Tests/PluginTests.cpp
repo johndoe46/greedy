@@ -2,6 +2,7 @@
 #include "PluginProcessor.h"
 #include <cstdlib>
 #include <cmath>
+#include <functional>
 #include <iostream>
 
 namespace
@@ -165,18 +166,24 @@ int main(int argc, char** argv)
     int selectors = 0;
     juce::Slider* normalSlider = nullptr;
     juce::Slider* accentSlider = nullptr;
-    for (int i = 0; i < editor->getNumChildComponents(); ++i)
+    std::function<void(juce::Component&)> inspectControls = [&](juce::Component& component)
     {
-        if (auto* slider = dynamic_cast<juce::Slider*>(editor->getChildComponent(i)))
+        for (int i = 0; i < component.getNumChildComponents(); ++i)
         {
-            ++knobs;
-            if (slider->getName() == "NORMAL VELOCITY")
-                normalSlider = slider;
-            if (slider->getName() == "ACCENT VELOCITY")
-                accentSlider = slider;
+            auto* child = component.getChildComponent(i);
+            if (auto* slider = dynamic_cast<juce::Slider*>(child))
+            {
+                ++knobs;
+                if (slider->getName() == "NORMAL VELOCITY")
+                    normalSlider = slider;
+                if (slider->getName() == "ACCENT VELOCITY")
+                    accentSlider = slider;
+            }
+            selectors += dynamic_cast<juce::ComboBox*>(child) != nullptr ? 1 : 0;
+            inspectControls(*child);
         }
-        selectors += dynamic_cast<juce::ComboBox*>(editor->getChildComponent(i)) != nullptr ? 1 : 0;
-    }
+    };
+    inspectControls(*editor);
     require(knobs == 8 && selectors == 3,
             "editor has six pattern knobs, two velocity sliders, and three note selectors");
     require(normalSlider != nullptr && accentSlider != nullptr
@@ -188,6 +195,16 @@ int main(int argc, char** argv)
             < 0.01f,
             "moving the normal velocity slider updates the plugin parameter");
     normalSlider->setValue(115, juce::sendNotificationSync);
+    require(editor->isResizable() && editor->getConstrainer() != nullptr
+            && std::abs(editor->getConstrainer()->getFixedAspectRatio() - 640.0 / 790.0) < 1.0e-6,
+            "editor advertises proportional resizing to the host");
+    editor->setSize(960, 1185);
+    require(editor->getWidth() == 960 && editor->getHeight() == 1185,
+            "editor accepts a larger proportional size");
+    const auto scaledSliderBounds = editor->getLocalArea(normalSlider, normalSlider->getLocalBounds());
+    require(std::abs(scaledSliderBounds.getWidth() - 396) <= 1,
+            "controls scale with the resized editor");
+    editor->setSize(640, 790);
     if (argc == 2)
     {
         juce::Image preview(juce::Image::RGB, editor->getWidth(), editor->getHeight(), true);

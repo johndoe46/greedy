@@ -11,6 +11,17 @@ const std::array<juce::Colour, 6> accents {
     juce::Colour(0xffffa760), juce::Colour(0xfff17d99), juce::Colour(0xfff4d878),
     juce::Colour(0xff6dcac1), juce::Colour(0xff6dcac1), juce::Colour(0xffa79aef)
 };
+constexpr int baseWidth = 640;
+constexpr int baseHeight = 790;
+
+juce::AffineTransform contentTransform(int width, int height)
+{
+    const auto scale = juce::jmin(static_cast<float>(width) / baseWidth,
+                                  static_cast<float>(height) / baseHeight);
+    const auto x = (static_cast<float>(width) - baseWidth * scale) * 0.5f;
+    const auto y = (static_cast<float>(height) - baseHeight * scale) * 0.5f;
+    return juce::AffineTransform::scale(scale).translated(x, y);
+}
 }
 
 GreedyLookAndFeel::GreedyLookAndFeel()
@@ -56,6 +67,7 @@ GreedyAudioProcessorEditor::GreedyAudioProcessorEditor(GreedyAudioProcessor& p)
     : AudioProcessorEditor(p), processor(p)
 {
     setLookAndFeel(&lookAndFeel);
+    addAndMakeVisible(controls);
     const std::array<const char*, 6> ids { "kickDensity", "snareDensity", "hatDensity", "mapX", "mapY", "chaos" };
     const std::array<const char*, 6> names { "KICK", "SNARE", "HI-HAT", "MAP X", "MAP Y", "CHAOS" };
     const std::array<const char*, 6> tips {
@@ -76,12 +88,12 @@ GreedyAudioProcessorEditor::GreedyAudioProcessorEditor(GreedyAudioProcessor& p)
         knobs[i].setColour(juce::Slider::rotarySliderFillColourId, accents[i]);
         knobs[i].setTooltip(tips[i]);
         knobs[i].setName(names[i]);
-        addAndMakeVisible(knobs[i]);
+        controls.addAndMakeVisible(knobs[i]);
         labels[i].setText(names[i], juce::dontSendNotification);
         labels[i].setJustificationType(juce::Justification::centred);
         labels[i].setColour(juce::Label::textColourId, accents[i]);
         labels[i].setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
-        addAndMakeVisible(labels[i]);
+        controls.addAndMakeVisible(labels[i]);
         knobAttachments[i] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             processor.parameters, ids[i], knobs[i]);
     }
@@ -95,12 +107,12 @@ GreedyAudioProcessorEditor::GreedyAudioProcessorEditor(GreedyAudioProcessor& p)
         noteSelectors[i].setJustificationType(juce::Justification::centred);
         noteSelectors[i].setName(juce::String(names[i]) + " MIDI note");
         noteSelectors[i].setTooltip("MIDI note number (0-127), sent on channel 10.");
-        addAndMakeVisible(noteSelectors[i]);
+        controls.addAndMakeVisible(noteSelectors[i]);
         noteLabels[i].setText("MIDI NOTE", juce::dontSendNotification);
         noteLabels[i].setJustificationType(juce::Justification::centred);
         noteLabels[i].setColour(juce::Label::textColourId, muted);
         noteLabels[i].setFont(juce::Font(juce::FontOptions(10.0f)));
-        addAndMakeVisible(noteLabels[i]);
+        controls.addAndMakeVisible(noteLabels[i]);
         noteAttachments[i] = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
             processor.parameters, noteIds[i], noteSelectors[i]);
     }
@@ -115,17 +127,20 @@ GreedyAudioProcessorEditor::GreedyAudioProcessorEditor(GreedyAudioProcessor& p)
         velocitySliders[i].setColour(juce::Slider::trackColourId, accents[i == 0 ? 3 : 5]);
         velocitySliders[i].setName(velocityNames[i]);
         velocitySliders[i].setTooltip("MIDI note-on velocity (1-127). Double-click to reset.");
-        addAndMakeVisible(velocitySliders[i]);
+        controls.addAndMakeVisible(velocitySliders[i]);
         velocityLabels[i].setText(velocityNames[i], juce::dontSendNotification);
         velocityLabels[i].setJustificationType(juce::Justification::centredLeft);
         velocityLabels[i].setColour(juce::Label::textColourId, accents[i == 0 ? 3 : 5]);
         velocityLabels[i].setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
-        addAndMakeVisible(velocityLabels[i]);
+        controls.addAndMakeVisible(velocityLabels[i]);
         velocityAttachments[i] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
             processor.parameters, velocityIds[i], velocitySliders[i]);
     }
     displayedPattern = processor.getPatternDisplay();
-    setSize(640, 790);
+    setSize(baseWidth, baseHeight);
+    setResizable(true, true);
+    setResizeLimits(480, 593, 1280, 1580);
+    getConstrainer()->setFixedAspectRatio(static_cast<double>(baseWidth) / baseHeight);
     startTimerHz(30);
 }
 
@@ -137,6 +152,9 @@ GreedyAudioProcessorEditor::~GreedyAudioProcessorEditor()
 
 void GreedyAudioProcessorEditor::resized()
 {
+    controls.setTransform({});
+    controls.setBounds(0, 0, baseWidth, baseHeight);
+    controls.setTransform(contentTransform(getWidth(), getHeight()));
     for (int column = 0; column < 3; ++column)
     {
         const auto i = static_cast<std::size_t>(column);
@@ -160,6 +178,7 @@ void GreedyAudioProcessorEditor::resized()
 void GreedyAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(background);
+    g.addTransform(contentTransform(getWidth(), getHeight()));
     g.setColour(panel);
     g.fillRoundedRectangle(24.0f, 62.0f, 592.0f, 104.0f, 14.0f);
     g.fillRoundedRectangle(24.0f, 176.0f, 592.0f, 254.0f, 14.0f);

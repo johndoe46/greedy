@@ -25,6 +25,7 @@ private:
     GreedyAudioProcessor& processor;
     GreedyLookAndFeel lookAndFeel;
     juce::TooltipWindow tooltips { this, 600 };
+    juce::Component controls;
     std::array<juce::Slider, 6> knobs;
     std::array<juce::Label, 6> labels;
     std::array<juce::ComboBox, 3> noteSelectors;
