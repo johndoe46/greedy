@@ -49,11 +49,11 @@ if(GREEDY_BUILD_PLUGIN)
         PRODUCT_NAME "Greedy"
         IS_SYNTH FALSE
         IS_MIDI_EFFECT TRUE
-        NEEDS_MIDI_INPUT FALSE
+        NEEDS_MIDI_INPUT TRUE
         NEEDS_MIDI_OUTPUT TRUE
         VST3_CATEGORIES Fx Generator
         AU_MAIN_TYPE kAudioUnitType_MIDIProcessor
-        VST_NUM_MIDI_INS 0
+        VST_NUM_MIDI_INS 1
         VST_NUM_MIDI_OUTS 1
         VST3_AUTO_MANIFEST ${greedy_auto_manifest}
         EDITOR_WANTS_KEYBOARD_FOCUS FALSE

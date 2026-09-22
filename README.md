@@ -15,8 +15,11 @@ instrument in a host that supports MIDI output from VST3 plugins.
 - **Map X / Map Y:** position in the original interpolated 5 × 5 Grids drum map.
 - **Chaos:** increases per-part hit levels with a new perturbation each pattern.
 - **Normal / Accent Velocity:** MIDI note-on velocities from 1–127. Defaults: 90 and 120.
+- **Slots 1–12:** short press recalls a stored setup; hold for 600 ms to store all
+  eleven parameter values. MIDI notes 36–47 (C1–B1) recall slots 1–12 on any channel.
 
 All eleven parameters support host automation and are saved with the project.
+The twelve stored slots are also saved with the project.
 Double-click a knob or velocity slider to reset it. Values can also be typed directly.
 The editor can be resized from its bottom-right corner and keeps its original proportions.
 
@@ -31,6 +34,7 @@ bar in 4/4). It follows the host tempo, playback position, and transport. All no
 use MIDI channel 10 and a 10 ms duration. Normal and accented hits use the
 configured velocity levels.
 There is no internal clock: playback needs valid host BPM and PPQ information.
+Incoming MIDI is used only for slot recall and is not copied to the MIDI output.
 Stops, bypass, seeks, loop jumps, and note-mapping changes release active notes.
 Parts assigned the same pitch combine coincident hits into one note, with
 accents taking priority.

@@ -3,6 +3,24 @@
 #include "PluginProcessor.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
+class GreedySlotButton final : public juce::TextButton,
+                               private juce::Timer
+{
+public:
+    GreedySlotButton(GreedyAudioProcessor&, int slot);
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+    void refresh();
+
+private:
+    void timerCallback() override;
+    GreedyAudioProcessor& processor;
+    const int slot;
+    bool longPressTriggered = false;
+    bool displayedStored = true;
+    bool displayedActive = false;
+};
+
 class GreedyLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
@@ -26,6 +44,7 @@ private:
     GreedyLookAndFeel lookAndFeel;
     juce::TooltipWindow tooltips { this, 600 };
     juce::Component controls;
+    std::array<std::unique_ptr<GreedySlotButton>, GreedyAudioProcessor::slotCount> slotButtons;
     std::array<juce::Slider, 6> knobs;
     std::array<juce::Label, 6> labels;
     std::array<juce::ComboBox, 3> noteSelectors;

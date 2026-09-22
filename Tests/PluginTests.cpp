@@ -42,8 +42,8 @@ int main(int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI initialiseJuce;
     GreedyAudioProcessor processor;
-    require(processor.isMidiEffect() && processor.producesMidi() && !processor.acceptsMidi(),
-            "plugin declares MIDI output only");
+    require(processor.isMidiEffect() && processor.producesMidi() && processor.acceptsMidi(),
+            "plugin declares MIDI input for slot recall and generated MIDI output");
     require(processor.getTotalNumInputChannels() == 0 && processor.getTotalNumOutputChannels() == 0,
             "plugin exposes no audio buses");
     require(processor.getParameters().size() == 11,
@@ -57,6 +57,9 @@ int main(int argc, char** argv)
     setParameter(processor, "kickNote", 60);
     setParameter(processor, "normalVelocity", 47);
     setParameter(processor, "accentVelocity", 107);
+    processor.storeSlot(0);
+    require(processor.isSlotStored(0) && processor.getCurrentSlot() == 0,
+            "storing captures a slot and marks it active");
     processor.prepareToPlay(48000, 512);
     TestPlayHead host;
     processor.setPlayHead(&host);
@@ -91,6 +94,12 @@ int main(int argc, char** argv)
         require(std::abs(restored.parameters.getParameter(ranged->getParameterID())->getValue()
                 - ranged->getValue()) < 1.0e-6f, "state round-trip restores each parameter");
     }
+    require(restored.isSlotStored(0) && restored.getCurrentSlot() == 0,
+            "state round-trip restores stored slots and the active slot");
+    setParameter(restored, "normalVelocity", 88);
+    restored.recallSlot(0);
+    require(std::abs(restored.parameters.getRawParameterValue("normalVelocity")->load() - 47.0f)
+            < 0.01f, "recalling a slot restores its parameter values");
 
     host.playing = true;
     processor.processBlock(audio, midi);
@@ -121,6 +130,7 @@ int main(int argc, char** argv)
         for (int step = 0; step < 32; ++step)
         {
             host.ppq = bar * 4.0 + step / 8.0;
+            midi.clear();
             processor.processBlock(stepAudio, midi);
             const auto display = processor.getPatternDisplay();
             require(display.currentStep == step, "pattern marker follows transport, including seeks");
@@ -160,10 +170,11 @@ int main(int argc, char** argv)
     setParameter(processor, "hatDensity", 83);
 
     std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
-    require(editor->getWidth() == 640 && editor->getHeight() == 790,
+    require(editor->getWidth() == 744 && editor->getHeight() == 790,
             "editor has its intended dimensions");
     int knobs = 0;
     int selectors = 0;
+    int slotButtonCount = 0;
     juce::Slider* normalSlider = nullptr;
     juce::Slider* accentSlider = nullptr;
     std::function<void(juce::Component&)> inspectControls = [&](juce::Component& component)
@@ -180,12 +191,15 @@ int main(int argc, char** argv)
                     accentSlider = slider;
             }
             selectors += dynamic_cast<juce::ComboBox*>(child) != nullptr ? 1 : 0;
+            if (child->getName().startsWith("SLOT "))
+                ++slotButtonCount;
             inspectControls(*child);
         }
     };
     inspectControls(*editor);
     require(knobs == 8 && selectors == 3,
             "editor has six pattern knobs, two velocity sliders, and three note selectors");
+    require(slotButtonCount == 12, "editor has twelve settings slot buttons");
     require(normalSlider != nullptr && accentSlider != nullptr
             && std::abs(normalSlider->getValue() - 115.0) < 0.01
             && std::abs(accentSlider->getValue() - 35.0) < 0.01,
@@ -196,15 +210,15 @@ int main(int argc, char** argv)
             "moving the normal velocity slider updates the plugin parameter");
     normalSlider->setValue(115, juce::sendNotificationSync);
     require(editor->isResizable() && editor->getConstrainer() != nullptr
-            && std::abs(editor->getConstrainer()->getFixedAspectRatio() - 640.0 / 790.0) < 1.0e-6,
+            && std::abs(editor->getConstrainer()->getFixedAspectRatio() - 744.0 / 790.0) < 1.0e-6,
             "editor advertises proportional resizing to the host");
-    editor->setSize(960, 1185);
-    require(editor->getWidth() == 960 && editor->getHeight() == 1185,
+    editor->setSize(1116, 1185);
+    require(editor->getWidth() == 1116 && editor->getHeight() == 1185,
             "editor accepts a larger proportional size");
     const auto scaledSliderBounds = editor->getLocalArea(normalSlider, normalSlider->getLocalBounds());
     require(std::abs(scaledSliderBounds.getWidth() - 396) <= 1,
             "controls scale with the resized editor");
-    editor->setSize(640, 790);
+    editor->setSize(744, 790);
     if (argc == 2)
     {
         juce::Image preview(juce::Image::RGB, editor->getWidth(), editor->getHeight(), true);
@@ -215,5 +229,22 @@ int main(int argc, char** argv)
                 && juce::PNGImageFormat().writeImageToStream(preview, stream),
                 "editor preview can be saved");
     }
-    std::cout << "All JUCE processor MIDI, pattern display, state, stop, and bypass tests passed.\n";
+
+    // Slot note-ons are consumed and apply the stored settings to this block.
+    editor.reset();
+    setParameter(processor, "kickNote", 77);
+    setParameter(processor, "normalVelocity", 99);
+    processor.prepareToPlay(48000, 512);
+    processor.setPlayHead(&host);
+    host.playing = true;
+    host.ppq = 0.0;
+    midi.addEvent(juce::MidiMessage::noteOn(1, GreedyAudioProcessor::slotMidiNote(0),
+                                           static_cast<juce::uint8>(100)), 0);
+    processor.processBlock(audio, midi);
+    require(midi.getNumEvents() == 1, "slot trigger note is consumed rather than passed through");
+    const auto recalledHit = (*midi.begin()).getMessage();
+    require(recalledHit.isNoteOn() && recalledHit.getNoteNumber() == 60
+            && recalledHit.getVelocity() == 47,
+            "MIDI slot recall affects generated notes in the triggering block");
+    std::cout << "All JUCE processor MIDI, slots, pattern display, state, stop, and bypass tests passed.\n";
 }
