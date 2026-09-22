@@ -14,9 +14,10 @@ instrument in a host that supports MIDI output from VST3 plugins.
   between hosts.
 - **Map X / Map Y:** position in the original interpolated 5 × 5 Grids drum map.
 - **Chaos:** increases per-part hit levels with a new perturbation each pattern.
+- **Normal / Accent Velocity:** MIDI note-on velocities from 1–127. Defaults: 90 and 120.
 
-All nine parameters support host automation and are saved with the project.
-Double-click a knob to reset it. Knob values can also be typed directly.
+All eleven parameters support host automation and are saved with the project.
+Double-click a knob or velocity slider to reset it. Values can also be typed directly.
 
 The three pattern lanes show the 32 steps for kick, snare, and hi-hat, with their
 assigned MIDI note numbers. Colored cells indicate active steps; brighter cells
@@ -26,10 +27,12 @@ bar's chaos variation. When stopped, it previews the first bar.
 
 The sequence has 32 thirty-second-note steps over four quarter-note beats (one
 bar in 4/4). It follows the host tempo, playback position, and transport. All notes
-use MIDI channel 10, a 10 ms duration, and velocity 90 or 120 for accented hits.
+use MIDI channel 10 and a 10 ms duration. Normal and accented hits use the
+configured velocity levels.
 There is no internal clock: playback needs valid host BPM and PPQ information.
 Stops, bypass, seeks, loop jumps, and note-mapping changes release active notes.
-Parts assigned the same pitch combine coincident hits into one note.
+Parts assigned the same pitch combine coincident hits into one note, with
+accents taking priority.
 
 ## Build
 

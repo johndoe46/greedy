@@ -21,6 +21,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout GreedyAudioProcessor::create
     for (std::size_t i = 0; i < noteIds.size(); ++i)
         layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { noteIds[i], 1 },
             noteNames[i], 0, 127, defaults[i]));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
+        juce::ParameterID { "normalVelocity", 1 }, "Normal Velocity", 1, 127, 90));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
+        juce::ParameterID { "accentVelocity", 1 }, "Accent Velocity", 1, 127, 120));
     return layout;
 }
 
@@ -35,6 +39,8 @@ GreedyAudioProcessor::GreedyAudioProcessor()
     const std::array<const char*, 3> noteIds { "kickNote", "snareNote", "hatNote" };
     for (std::size_t i = 0; i < noteIds.size(); ++i)
         notes[i] = parameters.getRawParameterValue(noteIds[i]);
+    velocityParameters[0] = parameters.getRawParameterValue("normalVelocity");
+    velocityParameters[1] = parameters.getRawParameterValue("accentVelocity");
 }
 
 bool GreedyAudioProcessor::isBusesLayoutSupported(const BusesLayout& layout) const
@@ -66,6 +72,8 @@ greedy::Settings GreedyAudioProcessor::readSettings() const noexcept
     settings.x = byte(3);
     settings.y = byte(4);
     settings.chaos = byte(5);
+    settings.normalVelocity = static_cast<std::uint8_t>(velocityParameters[0]->load(std::memory_order_relaxed));
+    settings.accentVelocity = static_cast<std::uint8_t>(velocityParameters[1]->load(std::memory_order_relaxed));
     return settings;
 }
 
@@ -84,10 +92,14 @@ GreedyAudioProcessor::PatternDisplay GreedyAudioProcessor::getPatternDisplay() c
     // Evaluate on the UI thread; the audio thread only publishes its position.
     for (std::size_t step = 0; step < 32; ++step)
     {
+        std::array<bool, 3> accents {};
         const auto velocities = greedy::PatternEngine::evaluate(
-            barStart + static_cast<std::int64_t>(step), settings);
+            barStart + static_cast<std::int64_t>(step), settings, &accents);
         for (std::size_t part = 0; part < velocities.size(); ++part)
+        {
             display.velocities[part][step] = velocities[part];
+            display.accents[part][step] = accents[part];
+        }
     }
     return display;
 }

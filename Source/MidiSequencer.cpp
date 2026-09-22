@@ -88,13 +88,19 @@ void MidiSequencer::process(int samples, Transport transport, const Settings& se
             continue;
 
         releaseUntil(sample, true, context, emit);
-        const auto velocities = PatternEngine::evaluate(absoluteStep, settings);
-        // Combine coincident hits assigned to the same pitch, choosing the accent.
+        std::array<bool, 3> accents {};
+        const auto velocities = PatternEngine::evaluate(absoluteStep, settings, &accents);
+        // Combine coincident hits assigned to the same pitch, prioritising accents.
         std::array<std::uint8_t, 128> hits {};
+        std::array<bool, 128> accentedHits {};
         for (std::size_t part = 0; part < velocities.size(); ++part)
         {
             const auto note = static_cast<std::size_t>(std::clamp(settings.notes[part], 0, 127));
-            hits[note] = std::max(hits[note], velocities[part]);
+            if (velocities[part] != 0 && (hits[note] == 0 || (accents[part] && !accentedHits[note])))
+            {
+                hits[note] = velocities[part];
+                accentedHits[note] = accents[part];
+            }
         }
         for (std::size_t note = 0; note < hits.size(); ++note)
         {

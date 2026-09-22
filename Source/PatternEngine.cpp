@@ -46,11 +46,14 @@ std::uint8_t PatternEngine::readMap(int step, int part, std::uint8_t x,
 }
 
 std::array<std::uint8_t, 3> PatternEngine::evaluate(std::int64_t absoluteStep,
-                                                 const Settings& settings) noexcept
+                                                 const Settings& settings,
+                                                 std::array<bool, 3>* accents) noexcept
 {
     const auto step = static_cast<int>((absoluteStep % 32 + 32) % 32);
     const auto cycle = (absoluteStep - step) / 32;
     std::array<std::uint8_t, 3> velocities {};
+    if (accents != nullptr)
+        accents->fill(false);
     for (int part = 0; part < 3; ++part)
     {
         const auto index = static_cast<std::size_t>(part);
@@ -58,7 +61,12 @@ std::array<std::uint8_t, 3> PatternEngine::evaluate(std::int64_t absoluteStep,
         const auto level = std::min(255, readMap(step, part, settings.x, settings.y)
                                        + perturbation);
         if (level > 255 - settings.density[index])
-            velocities[index] = static_cast<std::uint8_t>(level > 192 ? 120 : 90);
+        {
+            const bool accented = level > 192;
+            velocities[index] = accented ? settings.accentVelocity : settings.normalVelocity;
+            if (accents != nullptr)
+                (*accents)[index] = accented;
+        }
     }
     return velocities;
 }

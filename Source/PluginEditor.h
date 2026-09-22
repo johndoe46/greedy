@@ -29,8 +29,11 @@ private:
     std::array<juce::Label, 6> labels;
     std::array<juce::ComboBox, 3> noteSelectors;
     std::array<juce::Label, 3> noteLabels;
+    std::array<juce::Slider, 2> velocitySliders;
+    std::array<juce::Label, 2> velocityLabels;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 6> knobAttachments;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>, 3> noteAttachments;
+    std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 2> velocityAttachments;
     GreedyAudioProcessor::PatternDisplay displayedPattern;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GreedyAudioProcessorEditor)
 };

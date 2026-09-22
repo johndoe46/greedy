@@ -101,6 +101,15 @@ void patternTests()
     require(normal[0] == 90, "ordinary Grids hits use velocity 90");
     require(greedy::PatternEngine::evaluate(12, settings)[0] == 120,
             "Grids accents use velocity 120");
+    settings.normalVelocity = 45;
+    settings.accentVelocity = 110;
+    std::array<bool, 3> accented {};
+    require(greedy::PatternEngine::evaluate(0, settings, &accented)[0] == 45 && !accented[0],
+            "normal hits use the configured velocity");
+    require(greedy::PatternEngine::evaluate(12, settings, &accented)[0] == 110 && accented[0],
+            "accents use the configured velocity");
+    settings.normalVelocity = 90;
+    settings.accentVelocity = 120;
     require(greedy::PatternEngine::evaluate(-32, settings) == normal,
             "negative host positions wrap correctly");
 
@@ -192,6 +201,31 @@ void lifecycleTests()
     require(capture.events.size() == 1, "parts sharing a pitch produce one note-on");
     render(engine, capture, 512, { true, 120, 16.0 / 24000.0 }, settings);
     checkBalanced(capture.events);
+
+    // An accent still wins on a shared pitch when its configured velocity is lower.
+    settings.normalVelocity = 115;
+    settings.accentVelocity = 35;
+    int mixedStep = -1;
+    for (int step = 0; step < 32; ++step)
+    {
+        std::array<bool, 3> accents {};
+        const auto velocities = greedy::PatternEngine::evaluate(step, settings, &accents);
+        const auto hasAccent = std::any_of(accents.begin(), accents.end(), [](bool value) { return value; });
+        const auto hasNormal = std::any_of(velocities.begin(), velocities.end(),
+            [](std::uint8_t velocity) { return velocity == 115; });
+        if (hasAccent && hasNormal)
+        {
+            mixedStep = step;
+            break;
+        }
+    }
+    require(mixedStep >= 0, "test pattern has simultaneous normal and accented hits");
+    engine.prepare(48000);
+    capture = {};
+    render(engine, capture, 16, { true, 120, mixedStep / 8.0 }, settings);
+    require(capture.events.size() == 1 && capture.events[0].on
+            && capture.events[0].velocity == 35,
+            "accent wins on a shared pitch even when its velocity is lower");
 
     engine.prepare(48000);
     capture = {};

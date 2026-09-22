@@ -45,7 +45,8 @@ int main(int argc, char** argv)
             "plugin declares MIDI output only");
     require(processor.getTotalNumInputChannels() == 0 && processor.getTotalNumOutputChannels() == 0,
             "plugin exposes no audio buses");
-    require(processor.getParameters().size() == 9, "all six knobs and three note selectors are parameters");
+    require(processor.getParameters().size() == 11,
+            "knobs, note selectors, and velocity levels are parameters");
 
     setParameter(processor, "kickDensity", 100);
     setParameter(processor, "snareDensity", 0);
@@ -53,6 +54,8 @@ int main(int argc, char** argv)
     setParameter(processor, "mapX", 0);
     setParameter(processor, "mapY", 0);
     setParameter(processor, "kickNote", 60);
+    setParameter(processor, "normalVelocity", 47);
+    setParameter(processor, "accentVelocity", 107);
     processor.prepareToPlay(48000, 512);
     TestPlayHead host;
     processor.setPlayHead(&host);
@@ -65,6 +68,7 @@ int main(int argc, char** argv)
     const auto first = (*midi.begin()).getMessage();
     require(first.isNoteOn() && first.getNoteNumber() == 60 && first.getChannel() == 10,
             "note selection and MIDI channel reach actual JUCE output");
+    require(first.getVelocity() == 47, "configured normal velocity reaches actual JUCE output");
 
     host.playing = false;
     processor.processBlock(audio, midi);
@@ -105,8 +109,12 @@ int main(int argc, char** argv)
     setParameter(processor, "mapY", 29);
     setParameter(processor, "chaos", 100);
     setParameter(processor, "kickNote", 36);
+    setParameter(processor, "normalVelocity", 115);
+    setParameter(processor, "accentVelocity", 35);
     processor.setPlayHead(&host);
     juce::AudioBuffer<float> stepAudio(0, 3000); // One step at 120 BPM / 48 kHz.
+    bool sawNormal = false;
+    bool sawAccent = false;
     for (const auto bar : { -2, 3, 7 })
     {
         for (int step = 0; step < 32; ++step)
@@ -125,10 +133,20 @@ int main(int argc, char** argv)
                             emitted[part] = message.getVelocity();
             }
             for (std::size_t part = 0; part < emitted.size(); ++part)
+            {
                 require(emitted[part] == display.velocities[part][static_cast<std::size_t>(step)],
                         "each displayed drum step and accent matches generated MIDI with chaos");
+                if (emitted[part] != 0)
+                {
+                    sawAccent |= display.accents[part][static_cast<std::size_t>(step)]
+                                 && emitted[part] == 35;
+                    sawNormal |= !display.accents[part][static_cast<std::size_t>(step)]
+                                 && emitted[part] == 115;
+                }
+            }
         }
     }
+    require(sawNormal && sawAccent, "configured normal and accent velocities both reach MIDI output");
     processor.processBlockBypassed(audio, midi);
     require(processor.getPatternDisplay().currentStep == -1, "bypass removes playback marker");
     processor.setPlayHead(nullptr);
@@ -141,16 +159,35 @@ int main(int argc, char** argv)
     setParameter(processor, "hatDensity", 83);
 
     std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
-    require(editor->getWidth() == 640 && editor->getHeight() == 670,
+    require(editor->getWidth() == 640 && editor->getHeight() == 790,
             "editor has its intended dimensions");
     int knobs = 0;
     int selectors = 0;
+    juce::Slider* normalSlider = nullptr;
+    juce::Slider* accentSlider = nullptr;
     for (int i = 0; i < editor->getNumChildComponents(); ++i)
     {
-        knobs += dynamic_cast<juce::Slider*>(editor->getChildComponent(i)) != nullptr ? 1 : 0;
+        if (auto* slider = dynamic_cast<juce::Slider*>(editor->getChildComponent(i)))
+        {
+            ++knobs;
+            if (slider->getName() == "NORMAL VELOCITY")
+                normalSlider = slider;
+            if (slider->getName() == "ACCENT VELOCITY")
+                accentSlider = slider;
+        }
         selectors += dynamic_cast<juce::ComboBox*>(editor->getChildComponent(i)) != nullptr ? 1 : 0;
     }
-    require(knobs == 6 && selectors == 3, "editor has six knobs and three note selectors");
+    require(knobs == 8 && selectors == 3,
+            "editor has six pattern knobs, two velocity sliders, and three note selectors");
+    require(normalSlider != nullptr && accentSlider != nullptr
+            && std::abs(normalSlider->getValue() - 115.0) < 0.01
+            && std::abs(accentSlider->getValue() - 35.0) < 0.01,
+            "velocity sliders show their saved parameter values");
+    normalSlider->setValue(72, juce::sendNotificationSync);
+    require(std::abs(processor.parameters.getRawParameterValue("normalVelocity")->load() - 72.0f)
+            < 0.01f,
+            "moving the normal velocity slider updates the plugin parameter");
+    normalSlider->setValue(115, juce::sendNotificationSync);
     if (argc == 2)
     {
         juce::Image preview(juce::Image::RGB, editor->getWidth(), editor->getHeight(), true);

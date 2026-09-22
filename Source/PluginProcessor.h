@@ -9,6 +9,7 @@ public:
     struct PatternDisplay
     {
         std::array<std::array<std::uint8_t, 32>, 3> velocities {};
+        std::array<std::array<bool, 32>, 3> accents {};
         std::array<int, 3> notes {};
         int currentStep = -1;
     };
@@ -46,6 +47,7 @@ private:
     static void emitMidi(void* context, const greedy::NoteEvent& event);
     std::array<std::atomic<float>*, 6> controls {};
     std::array<std::atomic<float>*, 3> notes {};
+    std::array<std::atomic<float>*, 2> velocityParameters {};
     greedy::MidiSequencer sequencer;
     std::atomic<std::int64_t> displayedAbsoluteStep { std::numeric_limits<std::int64_t>::min() };
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GreedyAudioProcessor)

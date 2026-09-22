@@ -104,8 +104,28 @@ GreedyAudioProcessorEditor::GreedyAudioProcessorEditor(GreedyAudioProcessor& p)
         noteAttachments[i] = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
             processor.parameters, noteIds[i], noteSelectors[i]);
     }
+    const std::array<const char*, 2> velocityIds { "normalVelocity", "accentVelocity" };
+    const std::array<const char*, 2> velocityNames { "NORMAL VELOCITY", "ACCENT VELOCITY" };
+    for (std::size_t i = 0; i < velocitySliders.size(); ++i)
+    {
+        velocitySliders[i].setSliderStyle(juce::Slider::LinearHorizontal);
+        velocitySliders[i].setTextBoxStyle(juce::Slider::TextBoxRight, false, 48, 24);
+        velocitySliders[i].setRange(1, 127, 1);
+        velocitySliders[i].setDoubleClickReturnValue(true, i == 0 ? 90.0 : 120.0);
+        velocitySliders[i].setColour(juce::Slider::trackColourId, accents[i == 0 ? 3 : 5]);
+        velocitySliders[i].setName(velocityNames[i]);
+        velocitySliders[i].setTooltip("MIDI note-on velocity (1-127). Double-click to reset.");
+        addAndMakeVisible(velocitySliders[i]);
+        velocityLabels[i].setText(velocityNames[i], juce::dontSendNotification);
+        velocityLabels[i].setJustificationType(juce::Justification::centredLeft);
+        velocityLabels[i].setColour(juce::Label::textColourId, accents[i == 0 ? 3 : 5]);
+        velocityLabels[i].setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
+        addAndMakeVisible(velocityLabels[i]);
+        velocityAttachments[i] = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            processor.parameters, velocityIds[i], velocitySliders[i]);
+    }
     displayedPattern = processor.getPatternDisplay();
-    setSize(640, 670);
+    setSize(640, 790);
     startTimerHz(30);
 }
 
@@ -128,6 +148,13 @@ void GreedyAudioProcessorEditor::resized()
         labels[i + 3].setBounds(x, 444, 188, 24);
         knobs[i + 3].setBounds(x + 22, 468, 144, 154);
     }
+    for (int column = 0; column < 2; ++column)
+    {
+        const auto i = static_cast<std::size_t>(column);
+        const auto x = 40 + column * 288;
+        velocityLabels[i].setBounds(x, 654, 264, 20);
+        velocitySliders[i].setBounds(x, 684, 264, 36);
+    }
 }
 
 void GreedyAudioProcessorEditor::paint(juce::Graphics& g)
@@ -137,6 +164,7 @@ void GreedyAudioProcessorEditor::paint(juce::Graphics& g)
     g.fillRoundedRectangle(24.0f, 62.0f, 592.0f, 104.0f, 14.0f);
     g.fillRoundedRectangle(24.0f, 176.0f, 592.0f, 254.0f, 14.0f);
     g.fillRoundedRectangle(24.0f, 436.0f, 592.0f, 194.0f, 14.0f);
+    g.fillRoundedRectangle(24.0f, 638.0f, 592.0f, 108.0f, 14.0f);
     g.setColour(ink);
     g.setFont(juce::Font(juce::FontOptions(30.0f, juce::Font::bold)));
     g.drawText("greedy", 30, 16, 200, 40, juce::Justification::centredLeft);
@@ -163,7 +191,8 @@ void GreedyAudioProcessorEditor::paint(juce::Graphics& g)
             const auto velocity = displayedPattern.velocities[part][static_cast<std::size_t>(step)];
             const juce::Rectangle<float> cell { 128.0f + static_cast<float>(step) * 15.0f,
                                                static_cast<float>(y), 11.0f, 18.0f };
-            g.setColour(velocity > 0 ? accents[part].withAlpha(velocity > 90 ? 1.0f : 0.65f)
+            g.setColour(velocity > 0 ? accents[part].withAlpha(
+                                      displayedPattern.accents[part][static_cast<std::size_t>(step)] ? 1.0f : 0.65f)
                                     : muted.withAlpha(step % 8 == 0 ? 0.25f : 0.10f));
             g.fillRoundedRectangle(cell, 2.0f);
             if (step == displayedPattern.currentStep)
@@ -175,9 +204,9 @@ void GreedyAudioProcessorEditor::paint(juce::Graphics& g)
     }
     g.setColour(muted);
     g.setFont(juce::Font(juce::FontOptions(11.0f)));
-    g.drawText("32 STEPS / 4 BEATS", 30, 638, 220, 20, juce::Justification::centredLeft);
+    g.drawText("32 STEPS / 4 BEATS", 30, 758, 220, 20, juce::Justification::centredLeft);
     g.drawText(displayedPattern.currentStep < 0 ? "HOST STOPPED / MIDI CH 10" : "HOST SYNC / MIDI CH 10",
-               270, 638, 340, 20, juce::Justification::centredRight);
+               270, 758, 340, 20, juce::Justification::centredRight);
 }
 
 void GreedyAudioProcessorEditor::timerCallback()
@@ -185,6 +214,7 @@ void GreedyAudioProcessorEditor::timerCallback()
     const auto pattern = processor.getPatternDisplay();
     if (displayedPattern.currentStep != pattern.currentStep
         || displayedPattern.velocities != pattern.velocities
+        || displayedPattern.accents != pattern.accents
         || displayedPattern.notes != pattern.notes)
     {
         displayedPattern = pattern;
